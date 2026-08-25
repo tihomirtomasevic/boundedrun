@@ -237,7 +237,7 @@ argument.
 
 v0.1.0. The engine (declaration, execution, bounds) is about 950 lines of code;
 the whole package including the CLI, replay and the graduation report is under
-1,900. The test suite is 126 tests and runs entirely offline — there is no API
+1,900. The test suite is 136 tests at 95% coverage and runs entirely offline — there is no API
 key anywhere in this repository, and crash recovery is tested by actually
 killing a process with `SIGKILL`.
 
@@ -247,7 +247,8 @@ python examples/02_bounds.py        # adding a step moves the published number
 python examples/03_graduation.py    # a pipeline that outgrows itself
 ```
 
-Design notes and the reasoning behind each trade-off: [docs/DESIGN.md](docs/DESIGN.md).
+Design notes and the reasoning behind each trade-off:
+[docs/DESIGN.md](docs/DESIGN.md). The test plan: [docs/TESTING.md](docs/TESTING.md).
 
 ## Licence
 

@@ -270,10 +270,12 @@ class Pipeline:
         idempotency_key: str | None = None,
         value: Any = _MISSING,
     ) -> RunResult:
-        """Continue an interrupted run from its last successful step.
+        """Continue an interrupted or failed run from its last successful step.
 
         Steps whose output is on disk are not re-executed. ``value`` is only
-        needed when the interruption happened before the first checkpoint.
+        needed when the interruption happened before the first checkpoint, or
+        when the last checkpoint holds something JSON could not carry. Resuming
+        a run that already finished returns its recorded result untouched.
         """
         if run_id is None:
             if idempotency_key is None:

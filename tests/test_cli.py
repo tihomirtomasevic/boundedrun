@@ -162,3 +162,14 @@ def test_since_windows_parse(text, expected):
 def test_a_nonsense_window_is_rejected():
     with pytest.raises(Exception, match="30d"):
         parse_since("last tuesday")
+
+
+def test_resume_reports_the_status_of_the_run(seeded):
+    from boundedrun import Store
+
+    run_id = Store(str(seeded)).list_runs(status="done", limit=1)[0]["run_id"]
+    result = runner.invoke(app, ["resume", TARGET, run_id, "--store", str(seeded)])
+
+    assert result.exit_code == 0
+    assert run_id in result.stdout
+    assert "done" in result.stdout
