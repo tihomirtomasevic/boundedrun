@@ -225,8 +225,13 @@ store, so it cannot disturb the runs it learns from.
 
 ## Install
 
+Not on PyPI yet — install from source:
+
 ```console
-pip install boundedrun
+git clone https://github.com/tihomirtomasevic/boundedrun
+cd boundedrun
+pip install -e ".[dev]"
+make test          # 136 tests, offline, no API key needed
 ```
 
 Python 3.11+. Two dependencies: `typer` and `jsonschema`. No pydantic, no
@@ -235,10 +240,14 @@ argument.
 
 ## Status
 
-v0.1.0. The engine (declaration, execution, bounds) is about 950 lines of code;
-the whole package including the CLI, replay and the graduation report is under
-1,900. The test suite is 136 tests at 95% coverage and runs entirely offline — there is no API
-key anywhere in this repository, and crash recovery is tested by actually
+v0.1.0. The engine — declaration, execution, bounds — is 1,053 lines; the whole
+package including the CLI, replay and the graduation report is 2,037 (non-blank,
+non-comment, `src/boundedrun/*.py`). Counted rather than estimated, which felt
+like the minimum for a project whose argument is that the number should be
+knowable.
+
+The test suite is 136 tests at 95% coverage and runs entirely offline — there is
+no API key anywhere in this repository, and crash recovery is tested by actually
 killing a process with `SIGKILL`.
 
 ```console
