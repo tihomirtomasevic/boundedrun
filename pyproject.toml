@@ -25,7 +25,7 @@ dependencies = ["typer>=0.12", "jsonschema>=4.20"]
 dev = ["pytest>=8", "pytest-cov>=5", "anyio>=4", "ruff>=0.6"]
 
 [project.urls]
-Homepage = "https://github.com/ttomasevic/boundedrun"
+Homepage = "https://github.com/tihomirtomasevic/boundedrun"
 Writing = "https://t2software.ai/writing/before-you-build-an-agent.html"
 
 [project.scripts]
