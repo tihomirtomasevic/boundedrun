@@ -1,124 +1,83 @@
-# boundedrun — specifikacija
+# boundedrun — specification
 
-> **Za sesiju koja počinje bez konteksta:** ovaj dokument je potpun. Pročitaj §0 pa §20.
-
----
-
-## 0. Kontekst — zašto ovaj repozitorij postoji
-
-**Autor:** Tihomir Tomašević, softverski arhitekt, 17 godina iskustva u
-enterprise sustavima (Ericsson, IBM), danas vodi razvoj agentic LLM platforme u
-američkoj SaaS tvrtki. Gradio je i vlastitu platformu za validaciju dokumenata
-po točno ovom principu — LLM zatvoren u korak prosudbe, sve oko njega
-konvencionalno i testabilno.
-
-**Svrha:** javni portfeljni projekt koji dokazuje tezu autorovog članka. Cilj
-nije proizvod ni korisnici, nego da tehnički recenzent u dvije minute vidi da
-autor zna kada agent **ne** treba. Publika: CTO-i i staff inženjeri.
-
-**Posljedice za razvoj:**
-
-- **Manje je bolje.** Ovo mora biti manje od bilo kojeg agent frameworka —
-  to je i argument. Ako pređe ~900 redaka jezgre, nešto je krivo.
-- **Ne gradi workflow engine.** Vidi §3.
-- **Kod čitljiv na prvi pogled.** Recenzent skenira, ne proučava.
-- **Nema neprovjerljivih tvrdnji.** Autorovo pravilo s vlastitog sajta.
-- **Glas je prvo lice jednine.** „I", nikad „we".
-
-**Srodni projekti:** `fivegates`, `driftline`, `recallgap`. Vidi §14 — veza s
-`fivegates`om je konceptualno najvažnija u cijelom portfelju.
-
-## 0.1 Sažetak članka na kojem projekt počiva
-
-Prateći tekst: *Before You Build an Agent, Try a Cron Job*
-(https://t2software.ai/writing/before-you-build-an-agent.html).
-
-1. **Jedno pitanje odlučuje sve:** *„does the sequence of steps need to vary per
-   input?"* Ako ne, agent nije potreban.
-2. **Ljestve od četiri prečke**, po rastućoj složenosti:
-   1. obični kod — tok kontroliraš pri pisanju
-   2. **jedan poziv modela u fiksnom pipelineu** — model puni vrijednosti
-   3. **fiksni workflow s više koraka modela** — više točaka prosudbe
-   4. agent — model kontrolira tok u vrijeme izvođenja, neomeđen najgori slučaj
-3. **Granica je: *„who decides what happens next"*.** Prečke 1–3 = ti, u
-   čitljivom kodu. Prečka 4 = vjerojatnosna odluka u runtimeu.
-4. **Što se dobiva ostankom na nižim prečkama:** *„a bounded worst case"*,
-   kvarovi slijedivi do retka koda, jedna evaluacijska površina po pozivu
-   modela, *„latency you can quote"*, i kod koji svaki inženjer održava.
-5. **Agent zaslužuje složenost** uz dva ili više ovih signala: nepoznat broj
-   koraka do runtimea, nenabrojive kombinacije alata, semantički uvjet
-   zaustavljanja, i najjači — *„a human is in the loop, steering"*.
-6. **Ne opravdavaju agenta:** težina zadatka, nestrukturiran tekst, prirodan
-   izlaz, složenost domene. To traži jezični model, ne agentski tok kontrole.
-7. **Obrazac kvara:** ambiciozne arhitekture koje sjajno demonstriraju pa ih
-   *„get quietly switched off eight months later"*.
-8. **Preporučeni put:** izgradi determinističku verziju, instrumentiraj je,
-   pusti na pravi promet, analiziraj **koje je konkretne odluke kruti tok
-   promašio**, i tek onda se penji — naoružan evaluacijskim skupom iz stvarnih
-   kvarova, mjerljivim baselineom i fallback putevima.
-9. ***„Agentic is a control-flow decision, not a product decision."***
-
-Točke 2, 4 i 8 su opseg ovog repozitorija.
+The design brief this library was built against, written before any code. The
+acceptance criteria in §16 are the ones the test suite checks; where the
+implementation departed from this document, [docs/DESIGN.md](docs/DESIGN.md)
+records what changed and why.
 
 ---
 
-## 1. Naziv
+## 1. Name
 
-`boundedrun` — *bounded worst case* je konkretna korist ostanka na prečkama 2–3
-i glavna značajka alata: najgori slučaj se zna **prije** pokretanja (§5).
+`boundedrun` — a *bounded worst case* is the concrete benefit of staying on
+rungs 2–3 of the ladder, and the headline feature: the worst case is knowable
+**before** the run (§4).
 
-**Ime provjereno 25.08.2026:** slobodno na PyPI-ju, na GitHubu dva repozitorija
-tog imena, oba s nula zvjezdica. Ne preispituj bez razloga.
+## 2. Thesis
 
-> Slobodne alternative: `stepladder` (ali postoji GitHub repo sa 155★), `rung`,
-> `fixedflow`, `cronfirst`, `secondrung`, `judgestep`. **Zauzeto:** `rungs`,
-> `plainflow`.
+Companion essay: [*Before You Build an Agent, Try a Cron
+Job*](https://t2software.ai/writing/before-you-build-an-agent.html). Its
+argument, compressed:
 
-## 2. Teza
+1. **One question decides it:** does the sequence of steps need to vary per
+   input? If not, you do not need an agent.
+2. **A ladder of four rungs:** plain code; one model call in a fixed pipeline;
+   a fixed workflow with several model steps; an agent.
+3. **The line is *who decides what happens next*.** On rungs 1–3 it is you, in
+   readable code. On rung 4 it is a probabilistic decision taken at runtime.
+4. **What the lower rungs buy you:** a bounded worst case, failures traceable
+   to a line of code, one evaluation surface per model call, latency you can
+   quote, and code any engineer can maintain.
+5. **Climb only with evidence:** build the deterministic version, instrument
+   it, run it against real traffic, and analyse the specific decisions the
+   rigid flow got wrong.
 
-Većina timova skoči na prečku 4 jer prečke 2 i 3 nemaju alat. Postoji desetak
-agent frameworka i gotovo ništa za *„pipeline with a language model in the
-middle"* — pa je agent put manjeg otpora, iako je gotovo uvijek pogrešan.
+Most teams jump to rung 4 because rungs 2 and 3 have no tooling. There are a
+dozen agent frameworks and almost nothing for *a pipeline with a language model
+in the middle* — so the agent is the path of least resistance, even when it is
+the wrong answer.
 
-`boundedrun` daje toj razini alat, i uz njega dvije stvari koje agent po
-definiciji ne može imati:
+`boundedrun` is tooling for that level, and adds two things an agent cannot
+have by definition:
 
-1. **Statički omeđen najgori slučaj** — broj poziva modela, tokeni, trošak i
-   latencija poznati prije pokretanja, jer je niz koraka fiksan.
-2. **Izvještaj o dozrijevanju** (§9) — mjeri koliko je puta kruti tok bio
-   pogrešan, i time daje **dokaz** za penjanje na prečku 4, umjesto dojma.
+1. **A statically bounded worst case** — model calls, tokens, cost and latency
+   known before the run, because the sequence is fixed.
+2. **A graduation report** (§8) — measuring how often the rigid flow was wrong,
+   turning the decision to climb into evidence rather than impression.
 
-## 3. Što ovo NIJE
+## 3. What this is not
 
-- **Nije workflow engine.** Airflow, Prefect, Temporal, Dagster orkestriraju
-  proizvoljne DAG-ove u distribuiranom okruženju. `boundedrun` je mala
-  in-process biblioteka za jedan linearni pipeline s koracima prosudbe. Ako
-  trebaš skaliranje, raspored po satu i backfill — uzmi Temporal.
-- **Nije agent framework.** Namjerno. Za prečku 4 postoji `fivegates` (§14).
-- **Nije LLM klijent.** Poziv modela je funkcija koju predaš.
-- **Nije eval framework.** Replay (§8) služi usporedbi verzija prompta, ne
-  ocjenjivanju kvalitete.
-- **Nema grananja ovisnog o modelu.** To je prečka 4 i **eksplicitno je izvan
-  dosega** — čim model odlučuje što je sljedeće, više nisi ovdje.
+- **Not a workflow engine.** Airflow, Prefect, Temporal and Dagster orchestrate
+  arbitrary DAGs across a distributed fleet. `boundedrun` is a small in-process
+  library for one linear pipeline with judgment steps in it. If you need
+  scheduling, backfills and horizontal scale, use Temporal.
+- **Not an agent framework.** Deliberately. Rung 4 is a different project.
+- **Not an LLM client.** The model call is a function you supply.
+- **Not an eval framework.** Replay (§7) compares prompt versions; it does not
+  score quality.
+- **No model-driven branching.** The moment the model decides what happens
+  next, you are on rung 4 and this is the wrong tool. Out of scope on purpose.
 
-## 4. Načela
+## 4. Principles
 
-**Niz koraka je fiksan i deklariran.** Grananje smije ovisiti o
-determinističkim uvjetima, nikad o slobodnoj odluci modela. Ovo je granica koja
-definira projekt.
+**The sequence is fixed and declared.** Branching may depend on deterministic
+conditions, never on a free choice by the model. This is the boundary that
+defines the project.
 
-**Nedeterminizam u najmanjoj kutiji.** Korak prosudbe prima tipiziran ulaz i
-vraća izlaz po shemi. Sve oko njega — red čekanja, retry, perzistencija,
-idempotentnost, revizijski trag — konvencionalno je i testabilno.
+**Non-determinism in the smallest possible box.** A judgment step takes typed
+input and returns output matching a schema. Everything around it — queueing,
+retries, persistence, idempotency, the audit trail — stays conventional and
+testable.
 
-**Async-first.** Koraci su I/O-bound; API je async od prvog retka.
+**Async-first.** Steps are I/O-bound; the API is async from the first line.
 
-**Svaki run je reproducibilan.** Zapisani ulazi i verzije prompta dovoljni su
-da se run ponovi bajt po bajt tamo gdje je deterministički.
+**Every run is reproducible.** Recorded inputs and prompt versions are enough
+to repeat a run byte for byte wherever it is deterministic.
 
-## 5. Omeđen najgori slučaj — glavna značajka
+## 5. The bounded worst case — headline feature
 
-Jer je niz koraka poznat pri deklaraciji, granice se računaju statički:
+Because the sequence is known at declaration time, the bounds are computed
+statically:
 
 ```python
 bounds = pipeline.bounds()
@@ -126,31 +85,30 @@ print(bounds)
 ```
 
 ```
-boundedrun: 6 koraka (4 deterministička, 2 prosudbe)
-  najgori slučaj, s retryjima (max 3 po koraku):
-    poziva modela        6
-    ulazni tokeni    18,000
-    izlazni tokeni    3,000
-    trošak            $0.14
-    latencija          ~5.2 s
-  bez retryja:  2 poziva, $0.05, ~1.7 s
+boundedrun: 6 steps (4 deterministic, 2 judgment)
+  worst case, with retries (max 3 per step):
+    model calls          6
+    input tokens    18,000
+    output tokens    3,000
+    cost             $0.14
+    latency           ~5.2 s
+  without retries:  2 calls, $0.05, ~1.7 s
 ```
 
-Ovo je *„latency you can quote"* pretvoreno u naredbu. Agent to ne može dati
-jer mu je broj koraka nepoznat do runtimea — i upravo tu razliku README mora
-istaknuti.
+This is *latency you can quote*, turned into a command. An agent cannot give
+you these numbers, because it does not know its own step count until it runs.
 
-Granice se mogu i **provoditi**: `Pipeline(enforce_bounds=True)` diže iznimku
-ako run premaši deklarirani strop, umjesto da tiho poskupi.
+Bounds can also be **enforced**: `Pipeline(enforce_bounds=True)` raises rather
+than quietly costing more.
 
-CLI ih ispisuje bez pokretanja pipelinea, pa mogu u CI kao zaštita od
-neprimijećenog rasta:
+The CLI prints them without running the pipeline, so they fit in CI as a guard
+against unnoticed growth:
 
-```
+```console
 boundedrun bounds mypkg.flows:classify --max-cost 0.20
 ```
 
-## 6. Deklaracija pipelinea
+## 6. Declaring a pipeline
 
 ```python
 from boundedrun import Pipeline, step, judgment
@@ -158,7 +116,7 @@ from boundedrun import Pipeline, step, judgment
 
 @step
 async def extract(ctx, pdf: bytes) -> str:
-    return await pdf_to_text(pdf)  # deterministički
+    return await pdf_to_text(pdf)  # deterministic
 
 
 @judgment(
@@ -174,7 +132,7 @@ async def classify(ctx, text: str) -> dict:
 @step
 async def validate(ctx, result: dict) -> dict:
     if result["confidence"] < 0.7:
-        raise ctx.NeedsReview("niska pouzdanost")  # deterministički izlaz
+        raise ctx.NeedsReview("low confidence")  # deterministic exit
     return result
 
 
@@ -188,7 +146,7 @@ pipeline = Pipeline(
 result = await pipeline.run(pdf_bytes, idempotency_key="doc-4471")
 ```
 
-Determinističko grananje je dopušteno i deklarirano unaprijed:
+Deterministic branching is allowed, declared up front:
 
 ```python
 steps=[extract, classify, branch(on="category", {
@@ -197,173 +155,139 @@ steps=[extract, classify, branch(on="category", {
 })]
 ```
 
-**Grananje po slobodnoj odluci modela nije podržano i neće biti.** Ako ti treba,
-popeo si se na prečku 4 — vidi §14.
+**Branching on a free choice by the model is not supported and will not be.**
+If you need it, you have climbed to rung 4.
 
-## 7. Trajnost i revizijski trag
+## 7. Durability, audit trail, and replay
 
-Svaki korak zapisuje ulaz, izlaz, trajanje i ishod. Pipeline se može nastaviti
-iz zadnjeg uspješnog koraka nakon pada procesa.
+Every step records its input, output, duration and outcome. A pipeline resumes
+from the last successful step after a process failure.
 
-- **Idempotentnost**: `idempotency_key` po runu; ponovni poziv s istim ključem
-  vraća prvi rezultat umjesto da ponovi posao.
-- **Retry po koraku**, s politikom deklariranom na koraku, ne globalno.
-- **Revizijski zapis koraka prosudbe**: ulaz, verzija prompta, model, izlaz,
-  broj tokena. To je razlika između sustava koji smije dirati pravi novac i onog
-  koji ne smije.
-- **`NeedsReview`** je prvorazredan ishod, ne iznimka koja se guta — run
-  završava u stanju `needs_review` s očuvanim kontekstom.
+- **Idempotency**: an `idempotency_key` per run; a repeat call with the same
+  key returns the first result instead of redoing the work.
+- **Retries per step**, with the policy declared on the step rather than
+  globally — a flaky OCR call and a flaky model call do not deserve the same
+  policy.
+- **An audit record for every judgment step**: input, prompt version, model,
+  output, token counts. This is the difference between a system allowed to
+  touch real money and one that is not.
+- **`NeedsReview` is a first-class outcome**, not an exception that gets
+  swallowed: the run ends in `needs_review` with its context preserved.
 
-## 8. Replay
+Recorded runs can be replayed against a different prompt version or model, and
+the differences reported:
 
-Zapisani runovi se mogu ponoviti protiv druge verzije prompta ili modela, a
-razlike ispisati:
-
-```
+```console
 boundedrun replay --since 30d --prompt classify@v8
 
-142 runa ponovljeno
-  ishod isti          131  (92%)
-  ishod promijenjen    11   (8%)
+142 runs replayed
+  outcome unchanged   131  (92%)
+  outcome changed      11   (8%)
       invoice -> receipt     7
       contract -> invoice    4
-  trošak: $0.11 -> $0.09 po runu
+  cost: $0.11 -> $0.09 per run
 ```
 
-Ovo je *„evaluation set from real failures"* iz članka, samo nastalo samo od
-sebe — bez ručnog sastavljanja skupa. Determinističke korake replay preskače.
+This is an evaluation set drawn from real failures that assembled itself.
+Replay skips deterministic steps.
 
-## 9. Izvještaj o dozrijevanju — diferencijator
+## 8. The graduation report
 
-Članak kaže: penji se na prečku 4 tek kad analiziraš *„the specific decisions
-the rigid flow got wrong."* Nitko za to nema alat, pa se odluka donosi po
-dojmu. Ovo ga daje.
+The essay says to climb only after analysing *the specific decisions the rigid
+flow got wrong*. Nobody has tooling for that, so the decision gets made on
+impression. This supplies it.
 
-Pipeline prikuplja **signale nesklada**, svaki deterministički zabilježen:
+The pipeline collects **misfit signals**, each recorded deterministically:
 
-| signal | što znači |
+| signal | what it means |
 |---|---|
-| `needs_review` udio | kruti tok prečesto odustaje |
-| ručna korekcija ishoda | čovjek je mijenjao rezultat nakon izvođenja |
-| ponovljena putanja grananja | ista grana uvijek pogrešna za neku klasu ulaza |
-| korak preskočen kao nepotreban | fiksni niz radi suvišan posao |
-| **zatražen korak koji ne postoji** | korak prosudbe vraća „trebao bih X", a X nije u pipelineu |
+| `needs_review` rate | the rigid flow gives up too often |
+| manual correction | a human changed the outcome after the fact |
+| repeated branch path | one arm is always wrong for some class of input |
+| step skipped as unnecessary | the fixed sequence is doing surplus work |
+| **a step was requested that does not exist** | a judgment says "I would need X", and X is not in the pipeline |
 
-```
+```console
 boundedrun graduation --since 90d
 
-2,431 run
-  signali nesklada u 104 runa (4.3%)
-     zatražen nepostojeći korak     61   uglavnom "dohvati prethodni ugovor"
-     ručna korekcija                29
-     needs_review                   14
-  
-  Preporuka: 4.3% je ispod praga. Ostani na prečki 3.
-  Ako pređe 15%, imaš dokaz za penjanje — i evaluacijski skup od 104 runa
-  s kojim počinješ.
+2,431 runs
+  misfit signals in 104 runs (4.3%)
+     requested a step that does not exist   61   mostly "fetch_previous_contract"
+     manual correction                      29
+     needs_review                           14
+
+  Recommendation: 4.3% is below the 15% threshold. Stay on rung 3.
+  If it crosses 15%, you have your evidence to climb — and an evaluation set of
+  104 runs, already collected, to take with you.
 ```
 
-Prag je konfigurabilan i **namjerno visok**. Alat je pristran prema
-jednostavnosti; to je poanta članka.
+The threshold is configurable and **deliberately high**. The tool is biased
+toward simplicity; that is the point of the essay.
 
-## 10. Struktura repozitorija
+## 9. Repository layout
 
 ```
 boundedrun/
-  README.md            teza, ljestve, izlaz `bounds` iz §5, veza na članak
+  README.md            thesis, the ladder, bounds output, link to the essay
   pyproject.toml
   src/boundedrun/
-    pipeline.py        deklaracija, izvođenje, determinističko grananje
-    steps.py           @step i @judgment, sheme, retry politike
-    bounds.py          statički izračun najgoreg slučaja
-    store.py           SQLite: runovi, koraci, revizijski trag
-    replay.py          §8
-    graduation.py      §9
-    cli.py             boundedrun bounds / runs / show / replay / graduation
+    pipeline.py        declaration, execution, deterministic branching
+    steps.py           @step and @judgment, schemas, retry policies
+    bounds.py          static worst-case computation
+    store.py           SQLite: runs, steps, audit trail, misfit signals
+    replay.py          §7
+    graduation.py      §8
+    cli.py             bounds / runs / show / replay / graduation
   examples/
-    01_classify.py     pipeline s lažnim modelom, offline
-    02_bounds.py       dodavanje koraka mijenja objavljeni najgori slučaj
-    03_graduation.py   pipeline koji prerasta sebe — signali rastu preko praga
+    01_classify.py     a pipeline with a fake model, offline
+    02_bounds.py       adding a step moves the published worst case
+    03_graduation.py   a pipeline that outgrows itself
   tests/
-  docs/DESIGN.md       ljestve, s citatima iz članka
+  docs/DESIGN.md       the reasoning behind each trade-off
 ```
 
-## 11. Milestoneovi
+## 10. Milestones
 
-| | opseg | rezultat | procjena |
-|---|---|---|---|
-| **M0** | deklaracija, izvođenje, store, retry, idempotentnost | pipeline radi i preživi pad | 1 vikend |
-| **M1** | `bounds()` i CLI, `NeedsReview`, primjeri 01+02, README | **repozitorij je pokaziv** | +1 vikend |
-| **M2** | revizijski trag, replay (§8) | usporedba verzija prompta radi | +1 vikend |
-| **M3** | izvještaj o dozrijevanju (§9), determinističko grananje, primjer 03 | diferencijator zaokružen | +1–2 vikenda |
-
-Iznimka od uobičajenog redoslijeda: **`bounds()` ide već u M1** jer je to
-najuvjerljiviji dio i nosi README.
-
-## 12. README javnog repozitorija — nacrt
-
-1. Jedna rečenica: *Most systems that call themselves agents are pipelines with a model in the middle. This is the tooling for that.*
-2. **Ljestve od četiri prečke** kao tablica — odmah, prije teksta
-3. Izlaz `bounds()` iz §5 — *latency you can quote*
-4. 60-sekundni primjer (kod iz §6)
-5. Izvještaj o dozrijevanju iz §9 — kada prijeći na agenta i zašto ovaj alat to mjeri
-6. Što ovo nije (§3) — posebno razgraničenje od Temporala i agent frameworka
-7. Instalacija, status, licenca (MIT)
-
-## 13. Otvorena pitanja
-
-- **Procjena latencije u `bounds()`**: statična po modelu ili izmjerena iz
-  povijesnih runova? Statična je odmah dostupna ali netočna; izmjerena je
-  vjerodostojna ali traži prethodne runove. Prijedlog: statična kao default,
-  automatski zamijenjena izmjerenom kad postoji ≥30 runova, i **jasno označeno
-  koja se koristi**.
-- **Determinističko grananje i `bounds()`**: najgori slučaj po granama može se
-  jako razlikovati. Prijedlog: prijavi najgoru granu, uz raspon.
-- **Paralelni koraci**: smiju li se nezavisni koraci vrtjeti usporedno? Da, ali
-  tek u M3, i samo uz eksplicitnu oznaku — inače latencija prestaje biti
-  predvidljiva na način koji se može citirati.
-
-## 14. Odnos prema `fivegates` — najvažnija veza u portfelju
-
-`boundedrun` je **prečke 2–3**. `fivegates` je **prečka 4**. Zajedno su ljestve
-iz članka, i to je namjerno.
-
-Izvještaj o dozrijevanju (§9) je most: kad signali nesklada prijeđu prag,
-`boundedrun` ti kaže da si prerastao fiksni tok — a `fivegates` je mjesto na
-koje se penješ, s evaluacijskim skupom koji si usput skupio.
-
-README oba projekta trebaju upućivati jedan na drugi, s jednom rečenicom o tome
-koju prečku pokrivaju. Za recenzenta je to najjači signal u cijelom portfelju:
-**autor ne prodaje agente, nego zna kada ih ne treba** — i izgradio je alat za
-obje strane te odluke.
-
-`driftline` promatra oboje u produkciji; `recallgap` dijagnosticira dohvat prije
-nego išta od toga ode u rad.
-
-## 15. Provjera pozicioniranja
-
-A.Team izrijekom odbija *„developers focused primarily on simple AI wrappers or
-templated implementations."* Ovaj projekt je najjači protuprimjer u portfelju:
-argument mu je **protiv** složenosti koja se trenutno najbolje prodaje. Alat
-koji odgovara vlasnika od agenta pokazuje prosudbu koju nijedan demo ne može.
-
-## 16. Tehničke odluke (ne preispituj bez razloga)
-
-| odluka | izbor | zašto |
+| | scope | result |
 |---|---|---|
-| jezik | Python 3.11+ | autorov stack; `TaskGroup` za M3 |
-| model izvođenja | **async-first**, `asyncio` | koraci su I/O-bound |
-| pohrana | **SQLite, stdlib `sqlite3`**, WAL, kroz `asyncio.to_thread` | jedna datoteka, preživi pad |
-| validacija sheme | `jsonschema` | isto kao `fivegates`, dosljedno u portfelju |
+| **M0** | declaration, execution, store, retries, idempotency | a pipeline runs and survives a crash |
+| **M1** | `bounds()` and CLI, `NeedsReview`, examples 01–02, README | **the repository is showable** |
+| **M2** | audit trail, replay (§7) | prompt-version comparison works |
+| **M3** | graduation report (§8), deterministic branching, example 03 | the differentiator is complete |
+
+`bounds()` lands in M1 rather than later: it is the most convincing part and it
+carries the README.
+
+## 11. Open questions
+
+- **Latency estimation in `bounds()`**: static per model, or measured from
+  history? Static is available immediately but inaccurate; measured is credible
+  but needs prior runs. Proposal: static by default, replaced by measured once
+  there are ≥30 runs, and **always state which is in use**.
+- **Deterministic branching and `bounds()`**: worst cases can differ sharply
+  between arms. Proposal: report the worst arm, plus the range.
+- **Parallel steps**: may independent steps run concurrently? Yes, but only in
+  M3 and only when marked explicitly — otherwise latency stops being
+  predictable in a way you can quote.
+
+## 12. Technical decisions
+
+| decision | choice | why |
+|---|---|---|
+| language | Python 3.11+ | `TaskGroup` and `asyncio.timeout()` |
+| execution model | **async-first**, `asyncio` | steps are I/O-bound |
+| storage | **SQLite**, stdlib `sqlite3`, WAL, via `asyncio.to_thread` | one file, no service, survives a crash |
+| schema validation | `jsonschema` | small, standard |
 | CLI | `typer` | |
-| testovi | `pytest` + `anyio` | |
-| licenca | MIT | |
-| formatiranje | `ruff` | |
+| tests | `pytest` + `anyio` | |
+| licence | MIT | |
+| formatting | `ruff` | |
 
-Osnovne ovisnosti: `typer`, `jsonschema`. **Bez `pydantic`**, bez orkestracijskih
-biblioteka, bez ijednog agent frameworka — to bi proturječilo tezi.
+Runtime dependencies are `typer` and `jsonschema`. **No pydantic**, no
+orchestration library, no agent framework — any of those would contradict the
+argument.
 
-## 17. Shema pohrane
+## 13. Storage schema
 
 ```sql
 CREATE TABLE runs (
@@ -391,7 +315,7 @@ CREATE TABLE run_steps (
   status       TEXT NOT NULL,      -- ok | retried | failed | skipped
   input_json   TEXT,
   output_json  TEXT,
-  prompt_version TEXT,             -- samo judgment
+  prompt_version TEXT,             -- judgment only
   model        TEXT,
   tokens_in    INTEGER,
   tokens_out   INTEGER,
@@ -401,7 +325,7 @@ CREATE TABLE run_steps (
   ended_at     TEXT
 );
 
-CREATE TABLE misfit_signals (            -- §9
+CREATE TABLE misfit_signals (            -- §8
   signal_id  TEXT PRIMARY KEY,
   run_id     TEXT NOT NULL REFERENCES runs(run_id),
   kind       TEXT NOT NULL,        -- missing_step | manual_correction |
@@ -414,54 +338,46 @@ CREATE INDEX ix_steps_run   ON run_steps(run_id, seq);
 CREATE INDEX ix_misfit_kind ON misfit_signals(kind, recorded_at);
 ```
 
-## 18. Kriteriji dovršenosti
+## 14. Acceptance criteria
+
+A milestone is done when these pass, not when it looks done.
 
 **M0**
-- [ ] pipeline izvodi korake redom, s lažnim modelom, bez API ključa
-- [ ] `kill -9` nasred runa → nastavak iz zadnjeg uspješnog koraka
-- [ ] isti `idempotency_key` vraća prvi rezultat, ne ponavlja posao
-- [ ] retry politika po koraku, ne globalna
-- [ ] `@judgment` izlaz koji ne odgovara shemi → retry, pa `failed`
+- [ ] the pipeline runs its steps in order with a fake model and no API key
+- [ ] `kill -9` mid-run → resumes from the last successful step
+- [ ] the same `idempotency_key` returns the first result without redoing work
+- [ ] retry policy is per step, not global
+- [ ] a `@judgment` output that violates its schema retries, then fails
 
 **M1**
-- [ ] `pipeline.bounds()` daje izlaz iz §5, izračunat **bez pokretanja**
-- [ ] `enforce_bounds=True` diže iznimku pri prekoračenju, run ide u `bounds_exceeded`
-- [ ] `NeedsReview` završava run u `needs_review` s očuvanim kontekstom
-- [ ] `examples/02_bounds.py` pokazuje da dodan korak mijenja objavljeni broj
-- [ ] README po nacrtu iz §12
+- [ ] `pipeline.bounds()` produces the output in §5, computed **without running**
+- [ ] `enforce_bounds=True` raises on breach; the run ends `bounds_exceeded`
+- [ ] `NeedsReview` ends the run in `needs_review` with context preserved
+- [ ] `examples/02_bounds.py` shows an added step moving the published number
+- [ ] README written
 
 **M2**
-- [ ] revizijski zapis svakog `judgment` koraka potpun (ulaz, verzija, model, izlaz, tokeni)
-- [ ] `boundedrun replay` daje izlaz iz §8 i **ne poziva model za determinističke korake**
-- [ ] replay ne mijenja izvorne runove
+- [ ] the audit record for every judgment step is complete: input, prompt
+      version, model, output, token counts
+- [ ] `boundedrun replay` produces the output in §7 and **does not call the
+      model for deterministic steps**
+- [ ] replay does not mutate the original runs
 
 **M3**
-- [ ] svih pet signala nesklada se bilježi
-- [ ] `boundedrun graduation` daje izlaz iz §9 s preporukom
-- [ ] determinističko grananje radi, `bounds()` prijavljuje najgoru granu
-- [ ] `examples/03_graduation.py` prelazi prag i preporuka se mijenja
+- [ ] all five misfit signals are recorded
+- [ ] `boundedrun graduation` produces the output in §8 with a recommendation
+- [ ] deterministic branching works; `bounds()` reports the worst arm
+- [ ] `examples/03_graduation.py` crosses the threshold and the recommendation
+      changes
 
-## 19. Testna strategija
+## 15. Test strategy
 
-- **Bez pravih API poziva.** Lažni async model s namještenim izlazima i
-  brojevima tokena. Cijeli paket radi offline.
-- **`bounds()` se testira protiv stvarnog izvođenja**: pokreni pipeline u
-  najgorem scenariju (svi retryji iscrpljeni) i provjeri da stvarni trošak i
-  broj poziva **ne premašuju** objavljenu granicu. Ovo je najvažniji test — ako
-  granica nije istinita, cijela teza pada.
-- **Pad procesa se testira stvarno**, `subprocess` koji se ubije.
-- **Idempotentnost pod istovremenošću**: dva paralelna runa s istim ključem →
-  jedan izvršen, drugi dobiva isti rezultat.
-- Ciljaj ~35 testova.
-
-## 20. Prvi korak u novoj sesiji
-
-1. `git init`, `pyproject.toml`, `ruff`, `pytest`, MIT
-2. `store.py` — shema iz §17, WAL
-3. `steps.py` — `@step` i `@judgment` dekoratori, metapodaci koje `bounds()` treba
-4. `bounds.py` — statički izračun; **napiši rano**, jer diktira koje metapodatke
-   koraci moraju nositi
-5. `pipeline.py` — izvođenje, retry, idempotentnost
-6. test iz §19 koji uspoređuje granicu sa stvarnim najgorim izvođenjem
-
-Ne piši replay, grananje ni izvještaj o dozrijevanju dok M0 ne prolazi.
+- **No real API calls.** A fake async model with canned outputs and token
+  counts. The whole suite runs offline.
+- **`bounds()` is tested against actual execution**: run the pipeline in its
+  worst case, with every retry exhausted, and assert the real cost and call
+  count **do not exceed** the published bound. This is the most important test
+  in the repository — if the bound is not true, the whole thesis fails.
+- **Crash recovery is tested for real**, with a subprocess killed by `SIGKILL`.
+- **Idempotency under concurrency**: two parallel runs with the same key — one
+  executes, the other receives the same result.
