@@ -250,6 +250,14 @@ python examples/03_graduation.py    # a pipeline that outgrows itself
 Design notes and the reasoning behind each trade-off:
 [docs/DESIGN.md](docs/DESIGN.md). The test plan: [docs/TESTING.md](docs/TESTING.md).
 
+## Provenance
+
+Designed from a written specification ([SPEC.md](SPEC.md)), implemented with AI
+assistance, and verified against the acceptance criteria in that spec: 136
+offline tests, 95% coverage, no network access in the suite.
+
+The specification is the argument; the implementation is execution against it.
+
 ## Licence
 
 MIT.
