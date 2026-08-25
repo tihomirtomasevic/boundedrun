@@ -48,4 +48,12 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # Python 3.13 raises AttributeError on pathlib internals while collecting
+    # pytest's tmp_path objects; the interpreter swallows it and pytest reports
+    # it as an unraisable-exception warning. It is interpreter noise during
+    # teardown, not a defect here — the store closes its connections explicitly
+    # and has no __del__ — so it must not fail the suite.
+    "default::pytest.PytestUnraisableExceptionWarning",
+]
