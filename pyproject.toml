@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "boundedrun"
+version = "0.1.0"
+description = "A fixed pipeline with a language model in the middle — with a worst case you can quote before you run it."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Tihomir Tomašević" }]
+keywords = ["llm", "pipeline", "agents", "workflow", "bounds", "evaluation"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = ["typer>=0.12", "jsonschema>=4.20"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "anyio>=4", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/ttomasevic/boundedrun"
+Writing = "https://t2software.ai/writing/before-you-build-an-agent.html"
+
+[project.scripts]
+boundedrun = "boundedrun.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/boundedrun"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "examples"]
+# SPEC.md is the source document for this project, not source code:
+# ruff formats Python blocks inside Markdown, and it should leave that one alone.
+extend-exclude = ["SPEC.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
